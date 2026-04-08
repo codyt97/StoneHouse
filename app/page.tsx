@@ -19,8 +19,8 @@ import {
 } from "lucide-react";
 
 type ProjectLocation = "Indoor" | "Outdoor" | "";
-type ProjectType = "Kitchen" | "Bathroom" | "Other" | "Patio" | "";
-type Material = "Granite" | "Quartz" | "Tile" | "";
+type ProjectType = "Kitchen" | "Bathroom" | "Other" | "Patio";
+type Material = "Granite" | "Quartz" | "Tile";
 
 const materials = [
   { name: "Marble", description: "Timeless elegance", tones: "marble-light" },
@@ -80,8 +80,8 @@ function BrandLockup() {
 
 export default function HomePage() {
   const [location, setLocation] = useState<ProjectLocation>("");
-  const [projectType, setProjectType] = useState<ProjectType>("");
-  const [material, setMaterial] = useState<Material>("");
+  const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
+  const [materialsSelected, setMaterialsSelected] = useState<Material[]>([]);
   const [otherDetails, setOtherDetails] = useState("");
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
@@ -94,22 +94,58 @@ export default function HomePage() {
   const [submitError, setSubmitError] = useState("");
 
   const currentMaterialPrompt = useMemo(() => {
-    if (projectType === "Kitchen" || projectType === "Patio") return ["Granite", "Quartz"];
-    if (projectType === "Bathroom") return ["Tile"];
-    return [];
-  }, [projectType]);
+    const options = new Set<Material>();
+    if (projectTypes.includes("Kitchen") || projectTypes.includes("Patio")) {
+      options.add("Granite");
+      options.add("Quartz");
+    }
+    if (projectTypes.includes("Bathroom")) {
+      options.add("Tile");
+    }
+    return Array.from(options);
+  }, [projectTypes]);
+
+  const needsOtherDetails = projectTypes.includes("Other");
+  const hasMaterialStep = currentMaterialPrompt.length > 0 || needsOtherDetails;
+  const measurementsReady =
+    projectTypes.length > 0 &&
+    (!needsOtherDetails || otherDetails.trim().length > 0) &&
+    (currentMaterialPrompt.length === 0 || materialsSelected.length > 0);
 
   function handleLocationChange(next: ProjectLocation) {
     setLocation(next);
-    setProjectType(next === "Outdoor" ? "Patio" : "");
-    setMaterial("");
+    setProjectTypes([]);
+    setMaterialsSelected([]);
     setOtherDetails("");
   }
 
-  function handleProjectTypeChange(next: ProjectType) {
-    setProjectType(next);
-    setMaterial(next === "Bathroom" ? "Tile" : "");
-    setOtherDetails("");
+  function toggleProjectType(next: ProjectType) {
+    setProjectTypes((current) => {
+      const exists = current.includes(next);
+      const updated = exists ? current.filter((item) => item !== next) : [...current, next];
+
+      if (!updated.includes("Other")) {
+        setOtherDetails("");
+      }
+
+      setMaterialsSelected((existingMaterials) =>
+        existingMaterials.filter((item) => {
+          if (item === "Tile") return updated.includes("Bathroom");
+          if (item === "Granite" || item === "Quartz") {
+            return updated.includes("Kitchen") || updated.includes("Patio");
+          }
+          return false;
+        }),
+      );
+
+      return updated;
+    });
+  }
+
+  function toggleMaterial(next: Material) {
+    setMaterialsSelected((current) =>
+      current.includes(next) ? current.filter((item) => item !== next) : [...current, next],
+    );
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -124,8 +160,8 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           location,
-          projectType,
-          material: projectType === "Other" ? "" : material,
+          projectTypes,
+          materials: materialsSelected,
           otherDetails,
           width,
           height,
@@ -147,8 +183,8 @@ export default function HomePage() {
           "Thank you. Your project details and appointment request have been received.",
       );
       setLocation("");
-      setProjectType("");
-      setMaterial("");
+      setProjectTypes([]);
+      setMaterialsSelected([]);
       setOtherDetails("");
       setWidth("");
       setHeight("");
@@ -432,44 +468,68 @@ export default function HomePage() {
                     <div className="choice-grid">
                       {location === "Indoor" ? (
                         <>
-                          {["Kitchen", "Bathroom", "Other"].map((option) => (
+                          {["Kitchen", "Bathroom", "Patio", "Other"].map((option) => (
                             <button
                               key={option}
                               type="button"
                               className={`choice-card ${
-                                projectType === option ? "active" : ""
+                                projectTypes.includes(option as ProjectType) ? "active" : ""
                               }`}
-                              onClick={() => handleProjectTypeChange(option as ProjectType)}
+                              onClick={() => toggleProjectType(option as ProjectType)}
                             >
                               <strong>{option}</strong>
                             </button>
                           ))}
                         </>
                       ) : (
-                        <button
-                          type="button"
-                          className={`choice-card ${projectType === "Patio" ? "active" : ""}`}
-                          onClick={() => handleProjectTypeChange("Patio")}
-                        >
-                          <strong>Patio</strong>
-                        </button>
+                        <>
+                          {["Patio", "Other"].map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              className={`choice-card ${
+                                projectTypes.includes(option as ProjectType) ? "active" : ""
+                              }`}
+                              onClick={() => toggleProjectType(option as ProjectType)}
+                            >
+                              <strong>{option}</strong>
+                            </button>
+                          ))}
+                        </>
                       )}
                     </div>
                   </section>
                 ) : null}
 
-                {projectType ? (
+                {projectTypes.length > 0 ? (
                   <section className="form-card">
                     <div className="form-card-head">
                       <span>03</span>
                       <h3>
-                        {projectType === "Other"
+                        {needsOtherDetails && currentMaterialPrompt.length === 0
                           ? "Tell us about the project"
-                          : "Choose your material"}
+                          : "Choose your materials and details"}
                       </h3>
                     </div>
 
-                    {projectType === "Other" ? (
+                    {currentMaterialPrompt.length > 0 ? (
+                      <div className="choice-grid two-up">
+                        {currentMaterialPrompt.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            className={`choice-card ${
+                              materialsSelected.includes(option as Material) ? "active" : ""
+                            }`}
+                            onClick={() => toggleMaterial(option as Material)}
+                          >
+                            <strong>{option}</strong>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {needsOtherDetails ? (
                       <label className="field">
                         <span>Project details</span>
                         <textarea
@@ -479,24 +539,11 @@ export default function HomePage() {
                           required
                         />
                       </label>
-                    ) : (
-                      <div className="choice-grid two-up">
-                        {currentMaterialPrompt.map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            className={`choice-card ${material === option ? "active" : ""}`}
-                            onClick={() => setMaterial(option as Material)}
-                          >
-                            <strong>{option}</strong>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    ) : null}
                   </section>
                 ) : null}
 
-                {projectType && (projectType === "Other" || material) ? (
+                {measurementsReady ? (
                   <section className="form-card">
                     <div className="form-card-head">
                       <span>04</span>
@@ -532,7 +579,7 @@ export default function HomePage() {
                   </section>
                 ) : null}
 
-                {width && height ? (
+                {measurementsReady && width && height ? (
                   <section className="form-card">
                     <div className="form-card-head">
                       <span>05</span>
@@ -583,7 +630,7 @@ export default function HomePage() {
                   </section>
                 ) : null}
 
-                {appointmentDate && appointmentTime && name && phone ? (
+                {measurementsReady && appointmentDate && appointmentTime && name && phone ? (
                   <section className="form-card confirm-card">
                     <div className="form-card-head">
                       <span>06</span>
