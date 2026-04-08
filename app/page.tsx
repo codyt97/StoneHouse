@@ -1,8 +1,12 @@
+"use client";
+
 import Image from "next/image";
+import { FormEvent, useMemo, useState } from "react";
 import {
   ArrowRight,
   Award,
   Bath,
+  CheckCircle2,
   ChefHat,
   CircleDot,
   DraftingCompass,
@@ -11,29 +15,18 @@ import {
   Sparkles,
   Star,
   Trophy,
+  Trees,
 } from "lucide-react";
 
+type ProjectLocation = "Indoor" | "Outdoor" | "";
+type ProjectType = "Kitchen" | "Bathroom" | "Other" | "Patio" | "";
+type Material = "Granite" | "Quartz" | "Tile" | "";
+
 const materials = [
-  {
-    name: "Marble",
-    description: "Timeless elegance",
-    tones: "marble-light",
-  },
-  {
-    name: "Granite",
-    description: "Bold. Durable. Natural.",
-    tones: "granite-dark",
-  },
-  {
-    name: "Quartz",
-    description: "Modern. Low maintenance.",
-    tones: "quartz-soft",
-  },
-  {
-    name: "Quartzite",
-    description: "Strength meets beauty.",
-    tones: "quartzite-deep",
-  },
+  { name: "Marble", description: "Timeless elegance", tones: "marble-light" },
+  { name: "Granite", description: "Bold. Durable. Natural.", tones: "granite-dark" },
+  { name: "Quartz", description: "Modern. Low maintenance.", tones: "quartz-soft" },
+  { name: "Quartzite", description: "Strength meets beauty.", tones: "quartzite-deep" },
 ];
 
 const projects = [
@@ -86,6 +79,92 @@ function BrandLockup() {
 }
 
 export default function HomePage() {
+  const [location, setLocation] = useState<ProjectLocation>("");
+  const [projectType, setProjectType] = useState<ProjectType>("");
+  const [material, setMaterial] = useState<Material>("");
+  const [otherDetails, setOtherDetails] = useState("");
+  const [width, setWidth] = useState("");
+  const [height, setHeight] = useState("");
+  const [appointmentDate, setAppointmentDate] = useState("");
+  const [appointmentTime, setAppointmentTime] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [submitError, setSubmitError] = useState("");
+
+  const currentMaterialPrompt = useMemo(() => {
+    if (projectType === "Kitchen" || projectType === "Patio") return ["Granite", "Quartz"];
+    if (projectType === "Bathroom") return ["Tile"];
+    return [];
+  }, [projectType]);
+
+  function handleLocationChange(next: ProjectLocation) {
+    setLocation(next);
+    setProjectType(next === "Outdoor" ? "Patio" : "");
+    setMaterial("");
+    setOtherDetails("");
+  }
+
+  function handleProjectTypeChange(next: ProjectType) {
+    setProjectType(next);
+    setMaterial(next === "Bathroom" ? "Tile" : "");
+    setOtherDetails("");
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitMessage("");
+    setSubmitError("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/start-project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location,
+          projectType,
+          material: projectType === "Other" ? "" : material,
+          otherDetails,
+          width,
+          height,
+          appointmentDate,
+          appointmentTime,
+          name,
+          phone,
+        }),
+      });
+
+      const result = (await response.json()) as { message?: string; error?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to submit your project.");
+      }
+
+      setSubmitMessage(
+        result.message ||
+          "Thank you. Your project details and appointment request have been received.",
+      );
+      setLocation("");
+      setProjectType("");
+      setMaterial("");
+      setOtherDetails("");
+      setWidth("");
+      setHeight("");
+      setAppointmentDate("");
+      setAppointmentTime("");
+      setName("");
+      setPhone("");
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Something went wrong. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <main className="site-shell">
       <section className="hero">
@@ -106,8 +185,8 @@ export default function HomePage() {
               <a href="#visualizers">Visualizers</a>
               <a href="#about">About</a>
               <a href="#contact">Contact</a>
-              <a href="#quote" className="button button-gold small">
-                Get A Quote
+              <a href="#start-project" className="button button-gold small">
+                Start Your Project
               </a>
             </nav>
           </header>
@@ -120,8 +199,8 @@ export default function HomePage() {
                 fabrication. Flawless installation.
               </p>
               <div className="hero-actions">
-                <a href="#quote" className="button button-gold">
-                  Get A Quote
+                <a href="#start-project" className="button button-gold">
+                  Start Your Project
                 </a>
                 <a href="#materials" className="button button-outline">
                   Explore Materials
@@ -158,15 +237,15 @@ export default function HomePage() {
           </div>
 
           <div className="material-grid">
-            {materials.map((material) => (
-              <article key={material.name} className={`material-card ${material.tones}`}>
+            {materials.map((item) => (
+              <article key={item.name} className={`material-card ${item.tones}`}>
                 <div className="material-card-overlay" />
                 <div className="material-card-content">
                   <div className="material-icon">
                     <CircleDot size={16} />
                   </div>
-                  <h3>{material.name}</h3>
-                  <p>{material.description}</p>
+                  <h3>{item.name}</h3>
+                  <p>{item.description}</p>
                 </div>
               </article>
             ))}
@@ -182,8 +261,8 @@ export default function HomePage() {
               Bring your vision to life with our interactive tools. Visualize the
               perfect countertop before we cut a single slab.
             </p>
-            <a href="#quote" className="button button-gold">
-              Launch Kitchen Visualizer
+            <a href="#start-project" className="button button-gold">
+              Start Your Project
               <ArrowRight size={16} />
             </a>
             <div className="visualizer-links">
@@ -206,8 +285,8 @@ export default function HomePage() {
             <aside className="visualizer-panel left">
               <p>Choose Stone</p>
               <div className="swatch-grid">
-                {materials.map((material) => (
-                  <div key={material.name} className={`swatch ${material.tones}`} />
+                {materials.map((item) => (
+                  <div key={item.name} className={`swatch ${item.tones}`} />
                 ))}
               </div>
             </aside>
@@ -288,18 +367,258 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="quote" className="cta">
-        <div className="container cta-inner">
-          <div>
-            <h2>Ready To Elevate Your Space?</h2>
-            <p>
-              Get a free quote and expert guidance for your next kitchen, bath,
-              or statement stone installation.
-            </p>
+      <section id="start-project" className="project-intake">
+        <div className="container">
+          <div className="project-intake-shell">
+            <div className="project-intake-copy">
+              <p className="eyebrow">Concierge Intake</p>
+              <h2>Start Your Project</h2>
+              <p>
+                Share your project details, choose an appointment time, and let
+                our team guide the next step.
+              </p>
+              <div className="intake-step-list">
+                {[
+                  "Indoor or outdoor",
+                  "Project type",
+                  "Material selection",
+                  "Measurements",
+                  "Appointment details",
+                  "Email and text confirmation",
+                ].map((label, index) => (
+                  <div key={label} className="intake-step-pill">
+                    <span>{index + 1}</span>
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <form className="intake-form" onSubmit={handleSubmit}>
+              <div className="form-grid">
+                <section className="form-card">
+                  <div className="form-card-head">
+                    <span>01</span>
+                    <h3>Where is the project?</h3>
+                  </div>
+                  <div className="choice-grid two-up">
+                    <button
+                      type="button"
+                      className={`choice-card ${location === "Indoor" ? "active" : ""}`}
+                      onClick={() => handleLocationChange("Indoor")}
+                    >
+                      <Home size={18} />
+                      <strong>Indoor</strong>
+                      <small>Kitchens, baths, and custom interiors.</small>
+                    </button>
+                    <button
+                      type="button"
+                      className={`choice-card ${location === "Outdoor" ? "active" : ""}`}
+                      onClick={() => handleLocationChange("Outdoor")}
+                    >
+                      <Trees size={18} />
+                      <strong>Outdoor</strong>
+                      <small>Patios and exterior entertaining spaces.</small>
+                    </button>
+                  </div>
+                </section>
+
+                {location ? (
+                  <section className="form-card">
+                    <div className="form-card-head">
+                      <span>02</span>
+                      <h3>Select your project type</h3>
+                    </div>
+                    <div className="choice-grid">
+                      {location === "Indoor" ? (
+                        <>
+                          {["Kitchen", "Bathroom", "Other"].map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              className={`choice-card ${
+                                projectType === option ? "active" : ""
+                              }`}
+                              onClick={() => handleProjectTypeChange(option as ProjectType)}
+                            >
+                              <strong>{option}</strong>
+                            </button>
+                          ))}
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`choice-card ${projectType === "Patio" ? "active" : ""}`}
+                          onClick={() => handleProjectTypeChange("Patio")}
+                        >
+                          <strong>Patio</strong>
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+
+                {projectType ? (
+                  <section className="form-card">
+                    <div className="form-card-head">
+                      <span>03</span>
+                      <h3>
+                        {projectType === "Other"
+                          ? "Tell us about the project"
+                          : "Choose your material"}
+                      </h3>
+                    </div>
+
+                    {projectType === "Other" ? (
+                      <label className="field">
+                        <span>Project details</span>
+                        <textarea
+                          value={otherDetails}
+                          onChange={(event) => setOtherDetails(event.target.value)}
+                          placeholder="Describe the space, material ideas, and anything important to know."
+                          required
+                        />
+                      </label>
+                    ) : (
+                      <div className="choice-grid two-up">
+                        {currentMaterialPrompt.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            className={`choice-card ${material === option ? "active" : ""}`}
+                            onClick={() => setMaterial(option as Material)}
+                          >
+                            <strong>{option}</strong>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                ) : null}
+
+                {projectType && (projectType === "Other" || material) ? (
+                  <section className="form-card">
+                    <div className="form-card-head">
+                      <span>04</span>
+                      <h3>Enter your project dimensions</h3>
+                    </div>
+                    <div className="field-row">
+                      <label className="field">
+                        <span>Width (inches)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={width}
+                          onChange={(event) => setWidth(event.target.value)}
+                          placeholder="120"
+                          required
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Height (inches)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={height}
+                          onChange={(event) => setHeight(event.target.value)}
+                          placeholder="36"
+                          required
+                        />
+                      </label>
+                    </div>
+                    <p className="field-help">Please provide approximate measurements.</p>
+                  </section>
+                ) : null}
+
+                {width && height ? (
+                  <section className="form-card">
+                    <div className="form-card-head">
+                      <span>05</span>
+                      <h3>Choose your appointment time</h3>
+                    </div>
+                    <div className="field-row">
+                      <label className="field">
+                        <span>Preferred date</span>
+                        <input
+                          type="date"
+                          value={appointmentDate}
+                          onChange={(event) => setAppointmentDate(event.target.value)}
+                          required
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Preferred time</span>
+                        <input
+                          type="time"
+                          value={appointmentTime}
+                          onChange={(event) => setAppointmentTime(event.target.value)}
+                          required
+                        />
+                      </label>
+                    </div>
+                    <div className="field-row">
+                      <label className="field">
+                        <span>Full name</span>
+                        <input
+                          type="text"
+                          value={name}
+                          onChange={(event) => setName(event.target.value)}
+                          placeholder="Your full name"
+                          required
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Phone number</span>
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(event) => setPhone(event.target.value)}
+                          placeholder="(555) 555-5555"
+                          required
+                        />
+                      </label>
+                    </div>
+                  </section>
+                ) : null}
+
+                {appointmentDate && appointmentTime && name && phone ? (
+                  <section className="form-card confirm-card">
+                    <div className="form-card-head">
+                      <span>06</span>
+                      <h3>Confirm and notify</h3>
+                    </div>
+                    <div className="confirm-grid">
+                      <div className="confirm-note">
+                        <CheckCircle2 size={18} />
+                        <div>
+                          <strong>Company email notification</strong>
+                          <p>Your project details will be prepared for the team inbox.</p>
+                        </div>
+                      </div>
+                      <div className="confirm-note">
+                        <CheckCircle2 size={18} />
+                        <div>
+                          <strong>Client text confirmation</strong>
+                          <p>Your appointment confirmation will be sent by SMS.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {submitError ? <p className="submit-feedback error">{submitError}</p> : null}
+                    {submitMessage ? (
+                      <p className="submit-feedback success">{submitMessage}</p>
+                    ) : null}
+
+                    <button className="button button-gold submit-button" disabled={isSubmitting}>
+                      {isSubmitting ? "Submitting..." : "Confirm Appointment"}
+                    </button>
+                  </section>
+                ) : null}
+              </div>
+            </form>
           </div>
-          <a href="#contact" className="button button-gold">
-            Get Your Free Estimate
-          </a>
         </div>
       </section>
 
@@ -311,7 +630,7 @@ export default function HomePage() {
             <a href="#portfolio">Portfolio</a>
             <a href="#visualizers">Visualizers</a>
             <a href="#about">About</a>
-            <a href="#contact">Contact</a>
+            <a href="#start-project">Start Your Project</a>
           </div>
           <div className="footer-contact">
             <div>
